@@ -1,0 +1,27 @@
+class TailmixGui < Formula
+  desc "GTK4/libadwaita control panel for tailmix"
+  homepage "https://github.com/nhubaotruong/tailmix-gui"
+  url "https://github.com/nhubaotruong/tailmix-gui/releases/download/v@VERSION@/tailmix-gui-@VERSION@-x86_64-linux.tar.gz"
+  sha256 "@SHA256_X86_64@"
+  version "@VERSION@"
+  license "BSD-3-Clause"
+
+  on_arm do
+    url "https://github.com/nhubaotruong/tailmix-gui/releases/download/v@VERSION@/tailmix-gui-@VERSION@-aarch64-linux.tar.gz"
+    sha256 "@SHA256_AARCH64@"
+  end
+
+  depends_on "gtk4"
+  depends_on "libadwaita"
+
+  def install
+    bin.install "tailmix-gui"
+    (share/"applications").install "share/applications/io.github.nhubaotruong.TailmixGui.desktop"
+    (share/"metainfo").install "share/metainfo/io.github.nhubaotruong.TailmixGui.metainfo.xml"
+    (share/"icons/hicolor/scalable/apps").install "share/icons/hicolor/scalable/apps/io.github.nhubaotruong.TailmixGui.svg"
+  end
+
+  test do
+    assert_predicate bin/"tailmix-gui", :executable?
+  end
+end

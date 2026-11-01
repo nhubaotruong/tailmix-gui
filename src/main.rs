@@ -1,0 +1,39 @@
+mod app;
+mod bridge;
+mod dialogs;
+mod models;
+mod store;
+mod views;
+
+use adw::gtk::{gio, glib};
+use adw::prelude::*;
+
+fn main() -> glib::ExitCode {
+    if running_as_root() {
+        eprintln!(
+            "tailmix-gui: run as your desktop user; the app asks for authorization per change."
+        );
+        return glib::ExitCode::FAILURE;
+    }
+
+    let app = adw::Application::builder()
+        .application_id(app::APP_ID)
+        .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
+        .build();
+
+    app.connect_activate(app::activate);
+    app.connect_command_line(|app, _| {
+        app.activate();
+        0.into()
+    });
+
+    app.run()
+}
+
+/// A GUI owned by root breaks the desktop session and its agent; refuse it.
+fn running_as_root() -> bool {
+    use std::os::unix::fs::MetadataExt;
+    std::fs::metadata("/proc/self")
+        .map(|meta| meta.uid() == 0)
+        .unwrap_or(false)
+}

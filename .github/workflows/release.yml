@@ -1,0 +1,88 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    container: registry.fedoraproject.org/fedora:45
+    steps:
+      - name: Install build deps
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          git tar gcc pkgconf-pkg-config gtk4-devel libadwaita-devel cargo rust
+
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Package
+        run: |
+          set -eu
+          version="${GITHUB_REF_NAME#v}"
+          root="dist/tailmix-gui-${version}-${{ matrix.arch }}-linux"
+          install -Dm755 target/release/tailmix-gui "$root/tailmix-gui"
+          install -Dm644 data/io.github.nhubaotruong.TailmixGui.desktop \
+            "$root/share/applications/io.github.nhubaotruong.TailmixGui.desktop"
+          install -Dm644 data/io.github.nhubaotruong.TailmixGui.metainfo.xml \
+            "$root/share/metainfo/io.github.nhubaotruong.TailmixGui.metainfo.xml"
+          install -Dm644 data/io.github.nhubaotruong.TailmixGui.svg \
+            "$root/share/icons/hicolor/scalable/apps/io.github.nhubaotruong.TailmixGui.svg"
+          tar -C "$root" -czf "dist/tailmix-gui-${version}-${{ matrix.arch }}-linux.tar.gz" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tailmix-gui-${{ matrix.arch }}
+          path: dist/*.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Render Homebrew formula
+        run: |
+          set -eu
+          version="${GITHUB_REF_NAME#v}"
+          sha() { sha256sum "dist/tailmix-gui-${version}-$1-linux.tar.gz" | cut -d' ' -f1; }
+          sed \
+            -e "s/@VERSION@/${version}/g" \
+            -e "s/@SHA256_X86_64@/$(sha x86_64)/" \
+            -e "s/@SHA256_AARCH64@/$(sha aarch64)/" \
+            homebrew-tap/Formula/tailmix-gui.rb.in > homebrew-tap/Formula/tailmix-gui.rb
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.tar.gz --generate-notes --title "$GITHUB_REF_NAME"
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "homebrew-tap: tailmix-gui ${{ github.ref_name }}"
+          file_pattern: homebrew-tap/Formula/*.rb

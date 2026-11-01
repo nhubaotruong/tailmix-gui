@@ -29,7 +29,7 @@ jobs:
           dnf install -y --setopt=install_weak_deps=False
           git tar gcc pkgconf-pkg-config gtk4-devel libadwaita-devel cargo rust
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build
         run: cargo build --release
@@ -57,7 +57,7 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
 

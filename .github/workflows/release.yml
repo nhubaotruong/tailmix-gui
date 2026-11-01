@@ -58,31 +58,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: main
 
       - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
 
-      - name: Render Homebrew formula
-        run: |
-          set -eu
-          version="${GITHUB_REF_NAME#v}"
-          sha() { sha256sum "dist/tailmix-gui-${version}-$1-linux.tar.gz" | cut -d' ' -f1; }
-          sed \
-            -e "s/@VERSION@/${version}/g" \
-            -e "s/@SHA256_X86_64@/$(sha x86_64)/" \
-            -e "s/@SHA256_AARCH64@/$(sha aarch64)/" \
-            homebrew-tap/Formula/tailmix-gui.rb.in > homebrew-tap/Formula/tailmix-gui.rb
-
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/*.tar.gz --generate-notes --title "$GITHUB_REF_NAME"
-
-      - uses: stefanzweifel/git-auto-commit-action@v7
-        with:
-          commit_message: "homebrew-tap: tailmix-gui ${{ github.ref_name }}"
-          file_pattern: homebrew-tap/Formula/*.rb
